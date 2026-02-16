@@ -116,7 +116,7 @@ function update(delta) {
 /* -------------------- RENDER -------------------- */
 
 function render() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
 
     for (let id in players) {
         const p = players[id];

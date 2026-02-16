@@ -4,7 +4,7 @@ const { Server } = require('socket.io');
 const path = require('node:path');
 
 const app = express();
-const server = createServer(app);
+const server = createServer(app)
 const io = new Server(server);
 
 app.use(express.static("client"));
