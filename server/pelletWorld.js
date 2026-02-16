@@ -137,8 +137,10 @@ function createPelletWorld() {
         const sumRadius = effectivePlayerRadius + PELLET_RADIUS;
         const sumRadiusSq = sumRadius * sumRadius;
 
-        for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
-            for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
+        const cellRadius = Math.max(1, Math.ceil(sumRadius / CELL_SIZE));
+
+        for (let offsetX = -cellRadius; offsetX <= cellRadius; offsetX += 1) {
+            for (let offsetY = -cellRadius; offsetY <= cellRadius; offsetY += 1) {
                 const neighborX = cellX + offsetX;
                 const neighborY = cellY + offsetY;
 
