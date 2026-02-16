@@ -32,6 +32,7 @@ window.addEventListener('keyup', (e) => {
 
 socket.on('connect', () => {
     myId = socket.id;
+    console.log('Connected with ID:', myId);
 });
 
 socket.on('currentPlayers', (serverPlayers) => {
@@ -49,16 +50,10 @@ socket.on('playerDisconnected', (id) => {
 
 socket.on('playerMoved', (data) => {
     if (!players[data.id]) return;
+    if (data.id === myId) return;
 
-    if (data.id === myId) {
-        // Server reconciliation for self
-        players[data.id].x = data.x;
-        players[data.id].y = data.y;
-    } else {
-        // Update other players
-        players[data.id].x = data.x;
-        players[data.id].y = data.y;
-    }
+    players[data.id].x = data.x;
+    players[data.id].y = data.y;
 });
 
 /* -------------------- GAME LOOP -------------------- */
@@ -109,7 +104,7 @@ function update(delta) {
     // Send movement at fixed rate, not every frame
     sendAccumulator += delta;
 
-    if (moved) {
+    if (moved && sendAccumulator >= sendRate) {
         socket.emit('move', {
             x: player.x,
             y: player.y
