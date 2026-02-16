@@ -41,7 +41,3 @@ replit.nix
 
 # PM2
 .pm2/
-
-# Optional: lockfile (keep if you want reproducible installs)
-# package-lock.json
-# yarn.lock
