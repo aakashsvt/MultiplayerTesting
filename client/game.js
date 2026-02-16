@@ -104,7 +104,7 @@ function update(delta) {
     // Send movement at fixed rate, not every frame
     sendAccumulator += delta;
 
-    if (moved && sendAccumulator >= sendRate) {
+    if (moved) {
         socket.emit('move', {
             x: player.x,
             y: player.y
