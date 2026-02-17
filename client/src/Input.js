@@ -1,51 +1,28 @@
 export default class Input {
-    constructor() {
-        this.keys = {
-            up: false,
-            down: false,
-            left: false,
-            right: false
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.mouse = {
+            x: null,
+            y: null
         };
 
-        this.handleKeyDown = this.handleKeyDown.bind(this);
-        this.handleKeyUp = this.handleKeyUp.bind(this);
+        this.handleMouseMove = this.handleMouseMove.bind(this);
 
-        window.addEventListener("keydown", this.handleKeyDown);
-        window.addEventListener("keyup", this.handleKeyUp);
+        this.canvas.addEventListener("mousemove", this.handleMouseMove);
     }
 
-    handleKeyDown(event) {
-        if (event.key === "ArrowUp") this.keys.up = true;
-        if (event.key === "ArrowDown") this.keys.down = true;
-        if (event.key === "ArrowLeft") this.keys.left = true;
-        if (event.key === "ArrowRight") this.keys.right = true;
+    handleMouseMove(event) {
+        const rect = this.canvas.getBoundingClientRect();
+
+        this.mouse.x = event.clientX - rect.left;
+        this.mouse.y = event.clientY - rect.top;
     }
 
-    handleKeyUp(event) {
-        if (event.key === "ArrowUp") this.keys.up = false;
-        if (event.key === "ArrowDown") this.keys.down = false;
-        if (event.key === "ArrowLeft") this.keys.left = false;
-        if (event.key === "ArrowRight") this.keys.right = false;
-    }
-
-    isUpPressed() {
-        return this.keys.up;
-    }
-
-    isDownPressed() {
-        return this.keys.down;
-    }
-
-    isLeftPressed() {
-        return this.keys.left;
-    }
-
-    isRightPressed() {
-        return this.keys.right;
+    getMousePosition() {
+        return this.mouse;
     }
 
     destroy() {
-        window.removeEventListener("keydown", this.handleKeyDown);
-        window.removeEventListener("keyup", this.handleKeyUp);
+        this.canvas.removeEventListener("mousemove", this.handleMouseMove);
     }
 }

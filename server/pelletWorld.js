@@ -1,6 +1,6 @@
-const WORLD_WIDTH = 2800;
-const WORLD_HEIGHT = 1000;
-const CELL_SIZE = 40;
+const WORLD_WIDTH = 1920;
+const WORLD_HEIGHT = 1080;
+const CELL_SIZE = 30;
 const PELLET_RADIUS = 8;
 
 function createPelletWorld() {

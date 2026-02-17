@@ -46,7 +46,7 @@ function registerSocketHandlers(io, playerStore, pelletWorld) {
             const pelletResult = pelletWorld.handlePlayerPosition(position.x, position.y, position.radius);
 
             if (pelletResult && pelletResult.eatenId) {
-                finalRadius = position.radius * 1.02;
+                finalRadius = position.radius + 0.2;
 
                 playerStore.update(socket.id, {
                     x: position.x,

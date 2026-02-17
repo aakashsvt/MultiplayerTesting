@@ -7,12 +7,13 @@ const PELLET_RADIUS = 8;
 export default class Game {
     constructor(ctx) {
         this.ctx = ctx;
-        this.speed = 250;
+        this.baseSpeed = 250;
+        this.minSpeedFactor = 0.15;
         this.lastTime = 0;
         this.sendAccumulator = 0;
         this.sendRate = 1 / 20;
 
-        this.input = new Input();
+        this.input = new Input(this.ctx.canvas);
         this.socketClient = new SocketClient();
 
         this.pelletImage = new Image();
@@ -32,24 +33,55 @@ export default class Game {
 
         let moved = false;
 
-        if (this.input.isUpPressed()) {
-            player.y -= this.speed * delta;
-            moved = true;
-        }
+        const mouse = this.input.getMousePosition();
 
-        if (this.input.isDownPressed()) {
-            player.y += this.speed * delta;
-            moved = true;
-        }
+        if (mouse && typeof mouse.x === "number" && typeof mouse.y === "number") {
+            const dx = mouse.x - player.x;
+            const dy = mouse.y - player.y;
+            const distanceSq = dx * dx + dy * dy;
 
-        if (this.input.isLeftPressed()) {
-            player.x -= this.speed * delta;
-            moved = true;
-        }
+            if (distanceSq > 1) {
+                const distance = Math.sqrt(distanceSq);
+                const radius =
+                    typeof player.radius === "number" ? player.radius : BASE_PLAYER_RADIUS;
+                const normalizedRadius = radius / BASE_PLAYER_RADIUS;
+                const mass = normalizedRadius * normalizedRadius;
 
-        if (this.input.isRightPressed()) {
-            player.x += this.speed * delta;
-            moved = true;
+                let speedFactor = 1 / Math.sqrt(mass);
+
+                if (!Number.isFinite(speedFactor) || speedFactor <= 0) {
+                    speedFactor = 1;
+                }
+
+                speedFactor = Math.max(speedFactor, this.minSpeedFactor);
+
+                const currentSpeed = this.baseSpeed * speedFactor;
+                const maxStep = currentSpeed * delta;
+                const step = Math.min(maxStep, distance);
+                const ratio = step / distance;
+
+                player.x += dx * ratio;
+                player.y += dy * ratio;
+
+                const rect = this.ctx.canvas.getBoundingClientRect();
+                const minX = radius;
+                const maxX = rect.width - radius;
+                const minY = radius;
+                const maxY = rect.height - radius;
+
+                if (player.x < minX) {
+                    player.x = minX;
+                } else if (player.x > maxX) {
+                    player.x = maxX;
+                }
+
+                if (player.y < minY) {
+                    player.y = minY;
+                } else if (player.y > maxY) {
+                    player.y = maxY;
+                }
+                moved = true;
+            }
         }
 
         this.sendAccumulator += delta;
