@@ -1,14 +1,12 @@
 import Input from "../Input.js";
 import SocketClient from "../network/SocketClient.js";
-
-const BASE_PLAYER_RADIUS = 20;
-const PELLET_RADIUS = 8;
+import { BASE_PLAYER_RADIUS, PELLET_RADIUS, WORLD_WIDTH, WORLD_HEIGHT } from "../config.js";
 
 export default class Game {
     constructor(ctx) {
         this.ctx = ctx;
         this.baseSpeed = 250;
-        this.minSpeedFactor = 0.15;
+        this.minSpeedFactor = 0.3;
         this.lastTime = 0;
         this.sendAccumulator = 0;
         this.sendRate = 1 / 20;
@@ -34,10 +32,13 @@ export default class Game {
         let moved = false;
 
         const mouse = this.input.getMousePosition();
+        const canvas = this.ctx.canvas;
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
 
         if (mouse && typeof mouse.x === "number" && typeof mouse.y === "number") {
-            const dx = mouse.x - player.x;
-            const dy = mouse.y - player.y;
+            const dx = mouse.x - centerX;
+            const dy = mouse.y - centerY;
             const distanceSq = dx * dx + dy * dy;
 
             if (distanceSq > 1) {
@@ -60,25 +61,24 @@ export default class Game {
                 const step = Math.min(maxStep, distance);
                 const ratio = step / distance;
 
-                player.x += dx * ratio;
-                player.y += dy * ratio;
+                player.worldX += dx * ratio;
+                player.worldY += dy * ratio;
 
-                const rect = this.ctx.canvas.getBoundingClientRect();
                 const minX = radius;
-                const maxX = rect.width - radius;
+                const maxX = WORLD_WIDTH - radius;
                 const minY = radius;
-                const maxY = rect.height - radius;
+                const maxY = WORLD_HEIGHT - radius;
 
-                if (player.x < minX) {
-                    player.x = minX;
-                } else if (player.x > maxX) {
-                    player.x = maxX;
+                if (player.worldX < minX) {
+                    player.worldX = minX;
+                } else if (player.worldX > maxX) {
+                    player.worldX = maxX;
                 }
 
-                if (player.y < minY) {
-                    player.y = minY;
-                } else if (player.y > maxY) {
-                    player.y = maxY;
+                if (player.worldY < minY) {
+                    player.worldY = minY;
+                } else if (player.worldY > maxY) {
+                    player.worldY = maxY;
                 }
                 moved = true;
             }
@@ -87,15 +87,65 @@ export default class Game {
         this.sendAccumulator += delta;
 
         if (moved) {
-            this.socketClient.emitMove(player.x, player.y);
+            this.socketClient.emitMove(player.worldX, player.worldY);
             this.sendAccumulator = 0;
         }
     }
 
     render() {
         const canvas = this.ctx.canvas;
+        const player = this.socketClient.getMyPlayer();
 
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
         this.ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (!player) {
+            return;
+        }
+
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+
+        this.ctx.translate(centerX - player.worldX, centerY - player.worldY);
+
+        const gridSize = 50;
+        const extraCells = 20;
+        const halfWidth = canvas.width / 2;
+        const halfHeight = canvas.height / 2;
+        const worldMinX = -gridSize * extraCells;
+        const worldMaxX = WORLD_WIDTH + gridSize * extraCells;
+        const worldMinY = -gridSize * extraCells;
+        const worldMaxY = WORLD_HEIGHT + gridSize * extraCells;
+        const rawLeft = player.worldX - halfWidth;
+        const rawRight = player.worldX + halfWidth;
+        const rawTop = player.worldY - halfHeight;
+        const rawBottom = player.worldY + halfHeight;
+        const viewLeft = Math.max(worldMinX, rawLeft);
+        const viewRight = Math.min(worldMaxX, rawRight);
+        const viewTop = Math.max(worldMinY, rawTop);
+        const viewBottom = Math.min(worldMaxY, rawBottom);
+
+        this.ctx.strokeStyle = "white";
+        this.ctx.lineWidth = 0.5;
+        this.ctx.beginPath();
+
+        const firstVertical = Math.floor(viewLeft / gridSize) * gridSize;
+        const lastVertical = Math.ceil(viewRight / gridSize) * gridSize;
+
+        for (let x = firstVertical; x <= lastVertical; x += gridSize) {
+            this.ctx.moveTo(x, viewTop);
+            this.ctx.lineTo(x, viewBottom);
+        }
+
+        const firstHorizontal = Math.floor(viewTop / gridSize) * gridSize;
+        const lastHorizontal = Math.ceil(viewBottom / gridSize) * gridSize;
+
+        for (let y = firstHorizontal; y <= lastHorizontal; y += gridSize) {
+            this.ctx.moveTo(viewLeft, y);
+            this.ctx.lineTo(viewRight, y);
+        }
+
+        this.ctx.stroke();
 
         const pellets = this.socketClient.getPellets();
 
@@ -123,13 +173,14 @@ export default class Game {
         const myId = this.socketClient.getMyId();
 
         for (const id in players) {
-            const player = players[id];
+            const currentPlayer = players[id];
 
-            const radius = typeof player.radius === "number" ? player.radius : BASE_PLAYER_RADIUS;
+            const radius =
+                typeof currentPlayer.radius === "number" ? currentPlayer.radius : BASE_PLAYER_RADIUS;
 
             this.ctx.fillStyle = id === myId ? "red" : "blue";
             this.ctx.beginPath();
-            this.ctx.arc(player.x, player.y, radius, 0, Math.PI * 2);
+            this.ctx.arc(currentPlayer.worldX, currentPlayer.worldY, radius, 0, Math.PI * 2);
             this.ctx.fill();
         }
     }

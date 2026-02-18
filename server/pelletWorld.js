@@ -1,7 +1,6 @@
-const WORLD_WIDTH = 1920;
-const WORLD_HEIGHT = 1080;
-const CELL_SIZE = 30;
-const PELLET_RADIUS = 8;
+const { WORLD_WIDTH, WORLD_HEIGHT } = require("./worldConfig");
+const CELL_SIZE = 3;
+const PELLET_RADIUS = 10;
 
 function createPelletWorld() {
     const cols = Math.floor(WORLD_WIDTH / CELL_SIZE);
@@ -165,7 +164,6 @@ function createPelletWorld() {
 
     function handlePlayerPosition(x, y, playerRadius) {
         const pellet = getPelletNearPosition(x, y, playerRadius);
-
         if (!pellet) {
             return null;
         }
@@ -181,11 +179,13 @@ function createPelletWorld() {
         };
     }
 
-    populateInitialPellets(100);
+    const startPelletSpawnCount = 800;
+    populateInitialPellets(startPelletSpawnCount);
 
     return {
         getPellets,
-        handlePlayerPosition
+        handlePlayerPosition,
+        spawnRandomPellet
     };
 }
 

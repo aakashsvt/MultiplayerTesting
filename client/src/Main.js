@@ -47,22 +47,18 @@ export default class Main {
     }
 
     resize() {
-        const dpr = window.devicePixelRatio || 1;
-
         const width = window.innerWidth;
         const height = window.innerHeight;
 
         this.sizes.width = width;
         this.sizes.height = height;
-        this.sizes.scale = dpr;
+        this.sizes.scale = 1;
+
+        this.canvas.width = width;
+        this.canvas.height = height;
 
         this.canvas.style.width = `${width}px`;
         this.canvas.style.height = `${height}px`;
-
-        this.canvas.width = width * dpr;
-        this.canvas.height = height * dpr;
-
-        this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
 
     loop() {

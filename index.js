@@ -15,6 +15,16 @@ app.use(express.static("client"));
 const playerStore = createPlayerStore();
 const pelletWorld = createPelletWorld();
 
+const PELLET_SPAWN_INTERVAL_MS = 2000;
+
+setInterval(() => {
+    const pellet = pelletWorld.spawnRandomPellet();
+
+    if (pellet) {
+        io.emit("pelletSpawned", pellet);
+    }
+}, PELLET_SPAWN_INTERVAL_MS);
+
 registerSocketHandlers(io, playerStore, pelletWorld);
 
 const PORT = process.env.PORT || 3000;

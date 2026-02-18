@@ -4,11 +4,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mutliplayer Game</title>
+    <title>World Domination</title>
     <link rel="stylesheet" href="./styles.css">
 </head>
 
 <body>
+    <div id="landing">
+        <div class="landing-content">
+            <h1 class="game-title">World Domination</h1>
+            <p class="game-subtitle">Join the arena and outgrow every rival in real time.</p>
+            <button id="startButton" class="primary-button">Start Game</button>
+        </div>
+    </div>
     <canvas id="canvas" width="800" height="600"></canvas>
     <script src="/socket.io/socket.io.js"></script>
     <script type="module" src="script.js"></script>

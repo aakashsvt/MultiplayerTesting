@@ -1,9 +1,19 @@
+const { WORLD_WIDTH, WORLD_HEIGHT } = require("./worldConfig");
+
 function registerSocketHandlers(io, playerStore, pelletWorld) {
     io.on("connection", socket => {
         console.log("User connected:", socket.id);
 
-        const initialPosition = { x: 100, y: 100 };
-        const initialRadius = 20;
+        const MAX_PLAYER_RADIUS = 20;
+        const initialRadius = MAX_PLAYER_RADIUS;
+        const minX = initialRadius;
+        const maxX = WORLD_WIDTH - initialRadius;
+        const minY = initialRadius;
+        const maxY = WORLD_HEIGHT - initialRadius;
+        const initialPosition = {
+            x: Math.random() * (maxX - minX) + minX,
+            y: Math.random() * (maxY - minY) + minY
+        };
 
         playerStore.add(socket.id, {
             id: socket.id,
@@ -33,10 +43,14 @@ function registerSocketHandlers(io, playerStore, pelletWorld) {
                 return;
             }
 
+            const radius = existingPlayer.radius;
+            const clampedX = Math.max(radius, Math.min(WORLD_WIDTH - radius, movementData.x));
+            const clampedY = Math.max(radius, Math.min(WORLD_HEIGHT - radius, movementData.y));
+
             const position = {
-                x: movementData.x,
-                y: movementData.y,
-                radius: existingPlayer.radius
+                x: clampedX,
+                y: clampedY,
+                radius
             };
 
             playerStore.update(socket.id, position);
@@ -46,14 +60,13 @@ function registerSocketHandlers(io, playerStore, pelletWorld) {
             const pelletResult = pelletWorld.handlePlayerPosition(position.x, position.y, position.radius);
 
             if (pelletResult && pelletResult.eatenId) {
-                finalRadius = position.radius + 0.2;
+                finalRadius = Math.min(position.radius + 0.4, MAX_PLAYER_RADIUS);
 
                 playerStore.update(socket.id, {
                     x: position.x,
                     y: position.y,
                     radius: finalRadius
                 });
-
                 io.emit("pelletRemoved", {
                     id: pelletResult.eatenId
                 });
