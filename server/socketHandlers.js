@@ -4,8 +4,9 @@ function registerSocketHandlers(io, playerStore, pelletWorld) {
     io.on("connection", socket => {
         console.log("User connected:", socket.id);
 
-        const MAX_PLAYER_RADIUS = 20;
-        const initialRadius = MAX_PLAYER_RADIUS;
+        const INITIAL_PLAYER_RADIUS = 20;
+        const MAX_PLAYER_RADIUS = 300;
+        const initialRadius = INITIAL_PLAYER_RADIUS;
         const minX = initialRadius;
         const maxX = WORLD_WIDTH - initialRadius;
         const minY = initialRadius;
@@ -57,10 +58,24 @@ function registerSocketHandlers(io, playerStore, pelletWorld) {
 
             let finalRadius = position.radius;
 
-            const pelletResult = pelletWorld.handlePlayerPosition(position.x, position.y, position.radius);
+            const pelletResult = pelletWorld.handlePlayerPosition(
+                position.x,
+                position.y,
+                position.radius
+            );
 
             if (pelletResult && pelletResult.eatenId) {
-                finalRadius = Math.min(position.radius + 0.4, MAX_PLAYER_RADIUS);
+                let growth = 0.6;
+
+                if (position.radius >= MAX_PLAYER_RADIUS) {
+                    growth = 0;
+                } else if (position.radius >= MAX_PLAYER_RADIUS * 0.75) {
+                    growth = 0.15;
+                } else if (position.radius >= MAX_PLAYER_RADIUS * 0.5) {
+                    growth = 0.3;
+                }
+
+                finalRadius = Math.min(position.radius + growth, MAX_PLAYER_RADIUS);
 
                 playerStore.update(socket.id, {
                     x: position.x,
