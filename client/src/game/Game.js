@@ -125,7 +125,7 @@ export default class Game {
         const viewTop = Math.max(worldMinY, rawTop);
         const viewBottom = Math.min(worldMaxY, rawBottom);
 
-        this.ctx.strokeStyle = "white";
+        this.ctx.strokeStyle = "black";
         this.ctx.lineWidth = 0.5;
         this.ctx.beginPath();
 
@@ -151,22 +151,12 @@ export default class Game {
 
         for (const id in pellets) {
             const pellet = pellets[id];
+            const pelletRadius = PELLET_RADIUS * 1.1;
 
-            if (this.pelletImageLoaded) {
-                const size = PELLET_RADIUS * 2;
-                this.ctx.drawImage(
-                    this.pelletImage,
-                    pellet.x - size / 2,
-                    pellet.y - size / 2,
-                    size,
-                    size
-                );
-            } else {
-                this.ctx.fillStyle = "green";
-                this.ctx.beginPath();
-                this.ctx.arc(pellet.x, pellet.y, PELLET_RADIUS, 0, Math.PI * 2);
-                this.ctx.fill();
-            }
+            this.ctx.fillStyle = "green";
+            this.ctx.beginPath();
+            this.ctx.arc(pellet.x, pellet.y, pelletRadius, 0, Math.PI * 2);
+            this.ctx.fill();
         }
 
         const players = this.socketClient.getPlayers();
