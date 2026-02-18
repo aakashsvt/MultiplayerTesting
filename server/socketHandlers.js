@@ -65,14 +65,14 @@ function registerSocketHandlers(io, playerStore, pelletWorld) {
             );
 
             if (pelletResult && pelletResult.eatenId) {
-                let growth = 0.6;
+                let growth = 0.66;
 
                 if (position.radius >= MAX_PLAYER_RADIUS) {
                     growth = 0;
                 } else if (position.radius >= MAX_PLAYER_RADIUS * 0.75) {
-                    growth = 0.15;
+                    growth = 0.165;
                 } else if (position.radius >= MAX_PLAYER_RADIUS * 0.5) {
-                    growth = 0.3;
+                    growth = 0.33;
                 }
 
                 finalRadius = Math.min(position.radius + growth, MAX_PLAYER_RADIUS);

@@ -5,7 +5,7 @@ import { BASE_PLAYER_RADIUS, PELLET_RADIUS, WORLD_WIDTH, WORLD_HEIGHT } from "..
 export default class Game {
     constructor(ctx) {
         this.ctx = ctx;
-        this.baseSpeed = 250;
+        this.baseSpeed = 300;
         this.minSpeedFactor = 0.3;
         this.lastTime = 0;
         this.sendAccumulator = 0;
