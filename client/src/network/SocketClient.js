@@ -77,6 +77,10 @@ export default class SocketClient {
         return this.playerStore.getMyPlayer();
     }
 
+    getMyCells() {
+        return this.playerStore.getMyCells();
+    }
+
     getMyId() {
         return this.playerStore.getMyId();
     }
@@ -85,7 +89,16 @@ export default class SocketClient {
         return this.pellets;
     }
 
-    emitMove(x, y) {
-        this.socket.emit("move", { x, y });
+    emitMove(cells) {
+        this.socket.emit("move", { cells });
+    }
+
+    emitSplit(x, y, dirX, dirY) {
+        this.socket.emit("split", {
+            x,
+            y,
+            dirX,
+            dirY
+        });
     }
 }

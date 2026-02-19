@@ -7,10 +7,10 @@ export default class Game {
         this.ctx = ctx;
         this.baseSpeed = 300;
         this.minSpeedFactor = 0.3;
+        this.maxSpeed = 600;
         this.lastTime = 0;
         this.sendAccumulator = 0;
         this.sendRate = 1 / 20;
-
         this.input = new Input(this.ctx.canvas);
         this.socketClient = new SocketClient();
 
@@ -24,27 +24,42 @@ export default class Game {
 
     update(delta) {
         const player = this.socketClient.getMyPlayer();
+        const myCells = this.socketClient.getMyCells();
 
-        if (!player) {
+        if (!player || !myCells || !myCells.length) {
             return;
         }
-
-        let moved = false;
 
         const mouse = this.input.getMousePosition();
         const canvas = this.ctx.canvas;
         const centerX = canvas.width / 2;
         const centerY = canvas.height / 2;
 
+        let dirX = 0;
+        let dirY = 0;
+        let hasDirection = false;
+
         if (mouse && typeof mouse.x === "number" && typeof mouse.y === "number") {
             const dx = mouse.x - centerX;
             const dy = mouse.y - centerY;
             const distanceSq = dx * dx + dy * dy;
 
-            if (distanceSq > 1) {
+            if (distanceSq > 0.0001) {
                 const distance = Math.sqrt(distanceSq);
+                dirX = dx / distance;
+                dirY = dy / distance;
+                hasDirection = true;
+            }
+        }
+
+        let anyMoved = false;
+
+        if (hasDirection) {
+            for (let i = 0; i < myCells.length; i += 1) {
+                const cell = myCells[i];
+
                 const radius =
-                    typeof player.radius === "number" ? player.radius : BASE_PLAYER_RADIUS;
+                    typeof cell.radius === "number" ? cell.radius : BASE_PLAYER_RADIUS;
                 const normalizedRadius = radius / BASE_PLAYER_RADIUS;
                 const mass = normalizedRadius * normalizedRadius;
 
@@ -56,38 +71,56 @@ export default class Game {
 
                 speedFactor = Math.max(speedFactor, this.minSpeedFactor);
 
+                const maxSpeedFactor = this.maxSpeed / this.baseSpeed;
+
+                if (Number.isFinite(maxSpeedFactor) && maxSpeedFactor > 0) {
+                    speedFactor = Math.min(speedFactor, maxSpeedFactor);
+                }
+
                 const currentSpeed = this.baseSpeed * speedFactor;
                 const maxStep = currentSpeed * delta;
-                const step = Math.min(maxStep, distance);
-                const ratio = step / distance;
 
-                player.worldX += dx * ratio;
-                player.worldY += dy * ratio;
+                const stepX = dirX * maxStep;
+                const stepY = dirY * maxStep;
+
+                cell.worldX += stepX;
+                cell.worldY += stepY;
 
                 const minX = radius;
                 const maxX = WORLD_WIDTH - radius;
                 const minY = radius;
                 const maxY = WORLD_HEIGHT - radius;
 
-                if (player.worldX < minX) {
-                    player.worldX = minX;
-                } else if (player.worldX > maxX) {
-                    player.worldX = maxX;
+                if (cell.worldX < minX) {
+                    cell.worldX = minX;
+                } else if (cell.worldX > maxX) {
+                    cell.worldX = maxX;
                 }
 
-                if (player.worldY < minY) {
-                    player.worldY = minY;
-                } else if (player.worldY > maxY) {
-                    player.worldY = maxY;
+                if (cell.worldY < minY) {
+                    cell.worldY = minY;
+                } else if (cell.worldY > maxY) {
+                    cell.worldY = maxY;
                 }
-                moved = true;
+
+                anyMoved = true;
             }
+        }
+
+        if (hasDirection && this.input.consumeSplitRequest()) {
+            this.socketClient.emitSplit(player.worldX, player.worldY, dirX, dirY);
         }
 
         this.sendAccumulator += delta;
 
-        if (moved) {
-            this.socketClient.emitMove(player.worldX, player.worldY);
+        if (anyMoved) {
+            const cellsToSend = myCells.map(cell => ({
+                id: cell.id,
+                x: cell.worldX,
+                y: cell.worldY
+            }));
+
+            this.socketClient.emitMove(cellsToSend);
             this.sendAccumulator = 0;
         }
     }
@@ -168,7 +201,9 @@ export default class Game {
             const radius =
                 typeof currentPlayer.radius === "number" ? currentPlayer.radius : BASE_PLAYER_RADIUS;
 
-            this.ctx.fillStyle = id === myId ? "red" : "blue";
+            const isMyPlayer = id === myId || (typeof myId === "string" && id.startsWith(myId + ":"));
+
+            this.ctx.fillStyle = isMyPlayer ? "red" : "blue";
             this.ctx.beginPath();
             this.ctx.arc(currentPlayer.worldX, currentPlayer.worldY, radius, 0, Math.PI * 2);
             this.ctx.fill();

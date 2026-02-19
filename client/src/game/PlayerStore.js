@@ -22,8 +22,13 @@ export default class PlayerStore {
                 continue;
             }
 
+            const ownerId = typeof serverPlayer.id === "string"
+                ? serverPlayer.id.split(":")[0]
+                : serverPlayer.id;
+
             this.players[id] = {
                 id: serverPlayer.id,
+                ownerId,
                 worldX: serverPlayer.x,
                 worldY: serverPlayer.y,
                 radius: serverPlayer.radius
@@ -36,8 +41,12 @@ export default class PlayerStore {
             return;
         }
 
+        const ownerId =
+            typeof player.id === "string" ? player.id.split(":")[0] : player.id;
+
         this.players[player.id] = {
             id: player.id,
+            ownerId,
             worldX: player.x,
             worldY: player.y,
             radius: player.radius
@@ -72,11 +81,67 @@ export default class PlayerStore {
         return this.players;
     }
 
+    getCellsForOwner(ownerId) {
+        const result = [];
+
+        if (!ownerId) {
+            return result;
+        }
+
+        for (const id in this.players) {
+            const player = this.players[id];
+
+            if (player && player.ownerId === ownerId) {
+                result.push(player);
+            }
+        }
+
+        return result;
+    }
+
+    getMyCells() {
+        if (!this.myId) {
+            return [];
+        }
+
+        return this.getCellsForOwner(this.myId);
+    }
+
+    getMainCellForOwner(ownerId) {
+        if (!ownerId) {
+            return null;
+        }
+
+        const mainCell = this.players[ownerId];
+
+        if (mainCell) {
+            return mainCell;
+        }
+
+        const cells = this.getCellsForOwner(ownerId);
+
+        if (!cells.length) {
+            return null;
+        }
+
+        let largest = cells[0];
+
+        for (let i = 1; i < cells.length; i += 1) {
+            const cell = cells[i];
+
+            if (typeof cell.radius === "number" && cell.radius > largest.radius) {
+                largest = cell;
+            }
+        }
+
+        return largest;
+    }
+
     getMyPlayer() {
         if (!this.myId) {
             return null;
         }
 
-        return this.players[this.myId] || null;
+        return this.getMainCellForOwner(this.myId);
     }
 }
