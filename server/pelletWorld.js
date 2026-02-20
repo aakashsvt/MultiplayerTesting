@@ -124,7 +124,7 @@ function createPelletWorld() {
 
             if (!pellet) {
                 break;
-            }
+            }               
         }
     }
 
@@ -133,7 +133,7 @@ function createPelletWorld() {
 
         const effectivePlayerRadius = typeof playerRadius === "number" ? playerRadius : 20;
 
-        const sumRadius = effectivePlayerRadius + PELLET_RADIUS;
+        const sumRadius = effectivePlayerRadius + PELLET_RADIUS;                                            
         const sumRadiusSq = sumRadius * sumRadius;
 
         const cellRadius = Math.max(1, Math.ceil(sumRadius / CELL_SIZE));

@@ -14,6 +14,10 @@ export default class Game {
         this.input = new Input(this.ctx.canvas);
         this.socketClient = new SocketClient();
 
+        this.cellVelocities = {};
+        this.knownCellIds = new Set();
+        this.lastSplitInfo = null;
+
         this.pelletImage = new Image();
         this.pelletImageLoaded = false;
         this.pelletImage.src = "assets/sprite.png";
@@ -52,6 +56,50 @@ export default class Game {
             }
         }
 
+        const now = Date.now();
+
+        if (this.lastSplitInfo && now - this.lastSplitInfo.time > 2000) {
+            this.lastSplitInfo = null;
+        }
+
+        const newlyCreatedCells = [];
+
+        for (let i = 0; i < myCells.length; i += 1) {
+            const cell = myCells[i];
+
+            if (!this.knownCellIds.has(cell.id)) {
+                newlyCreatedCells.push(cell);
+                this.knownCellIds.add(cell.id);
+            }
+        }
+
+        const currentIds = new Set(myCells.map(cell => cell.id));
+
+        this.knownCellIds.forEach(id => {
+            if (!currentIds.has(id)) {
+                this.knownCellIds.delete(id);
+                delete this.cellVelocities[id];
+            }
+        });
+
+        if (this.lastSplitInfo && newlyCreatedCells.length > 0) {
+            const impulseSpeed = 400;
+            const splitDirX = this.lastSplitInfo.dirX;
+            const splitDirY = this.lastSplitInfo.dirY;
+
+            for (let i = 0; i < newlyCreatedCells.length; i += 1) {
+                const cell = newlyCreatedCells[i];
+
+                this.cellVelocities[cell.id] = {
+                    vx: splitDirX * impulseSpeed,
+                    vy: splitDirY * impulseSpeed,
+                    remaining: 0.4
+                };
+            }
+
+            this.lastSplitInfo = null;
+        }
+
         let anyMoved = false;
 
         if (hasDirection) {
@@ -83,8 +131,32 @@ export default class Game {
                 const stepX = dirX * maxStep;
                 const stepY = dirY * maxStep;
 
-                cell.worldX += stepX;
-                cell.worldY += stepY;
+                let extraX = 0;
+                let extraY = 0;
+
+                const velocityState = this.cellVelocities[cell.id];
+
+                if (velocityState && velocityState.remaining > 0) {
+                    extraX = velocityState.vx * delta;
+                    extraY = velocityState.vy * delta;
+
+                    velocityState.remaining -= delta;
+
+                    const decay = Math.exp(-4 * delta);
+
+                    velocityState.vx *= decay;
+                    velocityState.vy *= decay;
+
+                    if (
+                        velocityState.remaining <= 0 ||
+                        (Math.abs(velocityState.vx) < 1 && Math.abs(velocityState.vy) < 1)
+                    ) {
+                        delete this.cellVelocities[cell.id];
+                    }
+                }
+
+                cell.worldX += stepX + extraX;
+                cell.worldY += stepY + extraY;
 
                 const minX = radius;
                 const maxX = WORLD_WIDTH - radius;
@@ -109,6 +181,12 @@ export default class Game {
 
         if (hasDirection && this.input.consumeSplitRequest()) {
             this.socketClient.emitSplit(player.worldX, player.worldY, dirX, dirY);
+
+            this.lastSplitInfo = {
+                time: Date.now(),
+                dirX,
+                dirY
+            };
         }
 
         this.sendAccumulator += delta;

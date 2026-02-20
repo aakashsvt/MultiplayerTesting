@@ -4,6 +4,8 @@ const INITIAL_PLAYER_RADIUS = 20;
 const MAX_PLAYER_RADIUS = 300;
 const SPLIT_COOLDOWN_MS = 1000;
 const MINIMUM_RADIUS_TO_SPLIT = 30;
+const MERGE_DELAY_MS = 3000;
+const MERGE_DISTANCE_FACTOR = 0.5;
 
 function clampToWorldAxis(value, radius, worldLimit) {
     const min = radius;
@@ -59,6 +61,239 @@ function ensureCellListForSocket(playerCellsBySocket, socketId) {
     }
 
     return playerCellsBySocket[socketId];
+}
+
+function tryMergeCellsForSocket(socketId, playerCellsBySocket, playerStore, io, lastSplitTimeBySocket) {
+    const cells = playerCellsBySocket[socketId];
+
+    if (!Array.isArray(cells) || cells.length < 2) {
+        return;
+    }
+
+    const lastSplitTime = lastSplitTimeBySocket[socketId] || 0;
+    const now = Date.now();
+
+    if (now - lastSplitTime < MERGE_DELAY_MS) {
+        return;
+    }
+
+    for (let i = 0; i < cells.length; i += 1) {
+        const idA = cells[i];
+        const cellA = playerStore.get(idA);
+
+        if (!cellA || typeof cellA.radius !== "number") {
+            continue;
+        }
+
+        for (let j = i + 1; j < cells.length; j += 1) {
+            const idB = cells[j];
+            const cellB = playerStore.get(idB);
+
+            if (!cellB || typeof cellB.radius !== "number") {
+                continue;
+            }
+
+            const dx = cellA.x - cellB.x;
+            const dy = cellA.y - cellB.y;
+            const distanceSq = dx * dx + dy * dy;
+
+            const radiusA = cellA.radius;
+            const radiusB = cellB.radius;
+
+            const sumRadius = radiusA + radiusB;
+            const mergeDistance = sumRadius * MERGE_DISTANCE_FACTOR;
+            const mergeDistanceSq = mergeDistance * mergeDistance;
+
+            if (distanceSq > mergeDistanceSq) {
+                continue;
+            }
+
+            const massA = radiusA * radiusA;
+            const massB = radiusB * radiusB;
+            const totalMass = massA + massB;
+
+            if (totalMass <= 0) {
+                continue;
+            }
+
+            const mergedX = (cellA.x * massA + cellB.x * massB) / totalMass;
+            const mergedY = (cellA.y * massA + cellB.y * massB) / totalMass;
+            const mergedRadius = Math.sqrt(totalMass);
+
+            const keepId = idA;
+            const removeId = idB;
+
+            playerStore.update(keepId, {
+                x: mergedX,
+                y: mergedY,
+                radius: mergedRadius
+            });
+
+            playerStore.remove(removeId);
+
+            const index = cells.indexOf(removeId);
+
+            if (index !== -1) {
+                cells.splice(index, 1);
+            }
+
+            io.emit("playerMoved", {
+                id: keepId,
+                x: mergedX,
+                y: mergedY,
+                radius: mergedRadius
+            });
+
+            io.emit("playerDisconnected", removeId);
+
+            return;
+        }
+    }
+}
+
+function resolvePlayerConsumption(playerStore, playerCellsBySocket, io) {
+    const allPlayers = playerStore.getAll();
+    const ownerByCellId = {};
+
+    for (const socketId in playerCellsBySocket) {
+        const cells = playerCellsBySocket[socketId];
+
+        if (!Array.isArray(cells)) {
+            continue;
+        }
+
+        for (let i = 0; i < cells.length; i += 1) {
+            const cellId = cells[i];
+            ownerByCellId[cellId] = socketId;
+        }
+    }
+
+    const cellIds = Object.keys(allPlayers);
+    const removedIds = new Set();
+
+    const massAdvantage = 1.1;
+
+    for (let i = 0; i < cellIds.length; i += 1) {
+        const idA = cellIds[i];
+
+        if (removedIds.has(idA)) {
+            continue;
+        }
+
+        const cellA = allPlayers[idA];
+        const ownerA = ownerByCellId[idA];
+
+        if (!cellA || typeof cellA.radius !== "number" || !ownerA) {
+            continue;
+        }
+
+        for (let j = i + 1; j < cellIds.length; j += 1) {
+            const idB = cellIds[j];
+
+            if (removedIds.has(idB)) {
+                continue;
+            }
+
+            const cellB = allPlayers[idB];
+            const ownerB = ownerByCellId[idB];
+
+            if (!cellB || typeof cellB.radius !== "number" || !ownerB) {
+                continue;
+            }
+
+            if (ownerA === ownerB) {
+                continue;
+            }
+
+            const dx = cellB.x - cellA.x;
+            const dy = cellB.y - cellA.y;
+            const distanceSq = dx * dx + dy * dy;
+
+            const radiusA = cellA.radius;
+            const radiusB = cellB.radius;
+
+            const sumRadius = radiusA + radiusB;
+
+            if (sumRadius <= 0) {
+                continue;
+            }
+
+            const distance = Math.sqrt(distanceSq);
+
+            let attackerId = null;
+            let defenderId = null;
+
+            const massA = radiusA * radiusA;
+            const massB = radiusB * radiusB;
+
+            if (massA > massB * massAdvantage) {
+                const penetrationThreshold = radiusB * 0.3;
+
+                if (distance <= radiusA - penetrationThreshold) {
+                    attackerId = idA;
+                    defenderId = idB;
+                }
+            } else if (massB > massA * massAdvantage) {
+                const penetrationThreshold = radiusA * 0.3;
+
+                if (distance <= radiusB - penetrationThreshold) {
+                    attackerId = idB;
+                    defenderId = idA;
+                }
+            }
+
+            if (!attackerId || !defenderId) {
+                continue;
+            }
+
+            const attacker = allPlayers[attackerId];
+            const defender = allPlayers[defenderId];
+
+            if (!attacker || !defender) {
+                continue;
+            }
+
+            const attackerRadius = attacker.radius;
+            const defenderRadius = defender.radius;
+
+            const attackerMass = attackerRadius * attackerRadius;
+            const defenderMass = defenderRadius * defenderRadius;
+            const newMass = attackerMass + defenderMass;
+            const newRadius = Math.sqrt(newMass);
+
+            playerStore.update(attackerId, {
+                radius: newRadius
+            });
+
+            playerStore.remove(defenderId);
+
+            removedIds.add(defenderId);
+
+            for (const socketId in playerCellsBySocket) {
+                const cells = playerCellsBySocket[socketId];
+
+                if (!Array.isArray(cells)) {
+                    continue;
+                }
+
+                const index = cells.indexOf(defenderId);
+
+                if (index !== -1) {
+                    cells.splice(index, 1);
+                    break;
+                }
+            }
+
+            io.emit("playerMoved", {
+                id: attackerId,
+                x: attacker.x,
+                y: attacker.y,
+                radius: newRadius
+            });
+
+            io.emit("playerDisconnected", defenderId);
+        }
+    }
 }
 
 function registerSocketHandlers(io, playerStore, pelletWorld) {
@@ -167,6 +402,9 @@ function registerSocketHandlers(io, playerStore, pelletWorld) {
                     radius: finalRadius
                 });
             }
+
+            tryMergeCellsForSocket(socket.id, playerCellsBySocket, playerStore, io, lastSplitTimeBySocket);
+            resolvePlayerConsumption(playerStore, playerCellsBySocket, io);
         });
 
         socket.on("disconnect", () => {
@@ -187,7 +425,9 @@ function registerSocketHandlers(io, playerStore, pelletWorld) {
         });
 
         socket.on("split", data => {
-            if (!playerStore.has(socket.id)) {
+            const cellsForSocket = ensureCellListForSocket(playerCellsBySocket, socket.id);
+
+            if (!Array.isArray(cellsForSocket) || cellsForSocket.length === 0) {
                 return;
             }
 
@@ -209,11 +449,7 @@ function registerSocketHandlers(io, playerStore, pelletWorld) {
             const len = Math.sqrt(lenSq);
             const normX = dirX / len;
             const normY = dirY / len;
-            const cellsForSocket = playerCellsBySocket[socket.id];
-            const cellIds =
-                Array.isArray(cellsForSocket) && cellsForSocket.length > 0
-                    ? cellsForSocket.slice()
-                    : [socket.id];
+            const cellIds = cellsForSocket.slice();
 
             const socketCells = ensureCellListForSocket(playerCellsBySocket, socket.id);
 

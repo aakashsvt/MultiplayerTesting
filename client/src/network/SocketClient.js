@@ -16,7 +16,7 @@ export default class SocketClient {
         });
 
         this.socket.on("currentPlayers", serverPlayers => {
-            console.log("Current players:", serverPlayers);
+            console.log("Current players:", serverPlayers); 
             this.playerStore.setPlayers(serverPlayers);
         });
 
