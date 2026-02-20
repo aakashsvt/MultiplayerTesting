@@ -36,13 +36,16 @@ export default class SocketClient {
             const myId = this.playerStore.getMyId();
             const players = this.playerStore.getPlayers();
 
-            if (!players[data.id]) {
+            const player = players[data.id];
+
+            if (!player) {
                 return;
             }
 
             const radius = typeof data.radius === "number" ? data.radius : undefined;
+            const isMyCell = player.ownerId === myId;
 
-            if (data.id === myId) {
+            if (isMyCell) {
                 this.playerStore.updatePlayerPosition(data.id, undefined, undefined, radius);
                 return;
             }
